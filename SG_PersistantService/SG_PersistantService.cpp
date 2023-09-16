@@ -362,7 +362,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpsz
 
 	enableConsole();
 
-	WriteToLog(L"SG_Revealer Windows Service: command = '%s'\n\n", command);
+	WriteToLog(L"SG_PersistantService Windows Service: command = '%s'\n\n", command);
 	if (::wcsstr(command, SERVICE_COMMAND_INSTALL) != NULL)
 	{
 		// Obtaining the full path of the service and adding the special service name quotations
