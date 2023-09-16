@@ -36,19 +36,19 @@ bool g_bLoggedIn = false;		// Is there a logged in user?
 
 
 // A class for handling subscription to the logon event and waiting for the user to log in
-class UserLoginListner
+class UserLoginListener
 {
 	HANDLE hWait = NULL;
 	HANDLE hSubscription = NULL;
 
 public:
-	~UserLoginListner()
+	~UserLoginListener()
 	{
 		CloseHandle(hWait);
 		EvtClose(hSubscription);
 	}
 
-	UserLoginListner()
+	UserLoginListener()
 	{
 		const wchar_t* pwsPath = EVENT_SUBSCRIBE_PATH;
 		const wchar_t* pwsQuery = EVENT_SUBSCRIBE_QUERY;
@@ -59,7 +59,7 @@ public:
 			pwsPath, pwsQuery,
 			NULL,
 			hWait,
-			(EVT_SUBSCRIBE_CALLBACK)UserLoginListner::SubscriptionCallback,
+			(EVT_SUBSCRIBE_CALLBACK)UserLoginListener::SubscriptionCallback,
 			EvtSubscribeToFutureEvents);
 		if (hSubscription == NULL)
 		{
@@ -80,6 +80,19 @@ public:
 	void WaitForUserToLogIn()
 	{
 		WriteToLog(L"Waiting for a user to log in...");
+
+		// Check if there are events already available
+		EVT_HANDLE hEvents[1];
+		DWORD dwReturned;
+		if (EvtNext(hSubscription, 1, hEvents, INFINITE, 0, &dwReturned))
+		{
+			// Events are already available, indicating a user has logged in
+			WriteToLog(L"Received a Logon event - a user has already logged in");
+			EvtClose(hEvents[0]); // Close the event handle
+			return;
+		}
+
+		// Wait for events
 		WaitForSingleObject(hWait, INFINITE);
 		WriteToLog(L"Received a Logon event - a user has logged in");
 	}
@@ -730,7 +743,7 @@ void WINAPI ServiceMain(DWORD dwArgCount, LPTSTR lpszArgValues[])
 
 	WriteToLog(L"Launch client\n"); // launch client ...
 	{
-		UserLoginListner WaitTillAUserLogins;
+		UserLoginListener WaitTillAUserLogins;
 		WaitTillAUserLogins.WaitForUserToLogIn();
 	}
 	ImpersonateActiveUserAndRun();
@@ -1099,8 +1112,8 @@ DWORD WINAPI AppMainFunction()
 	{
 		g_bLoggedIn = true;
 		SetTimer(hWnd, MAIN_TIMER_ID, 10000, NULL);
-		// SG Revealer Service [%S %S] has started
-		WriteToLog(L"SG Revealer Service [%S %S] has started\n",
+		// SG Persistant Service [%S %S] has started
+		WriteToLog(L"SG Persistant Service [%S %S] has started\n",
 			__DATE__,
 			__TIME__);
 	}
@@ -1228,78 +1241,66 @@ LRESULT CALLBACK S_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 			if (is_running) break;
 			WriteToLog(L"Timer event");
 			is_running = true;
-			HANDLE hProcessSnap;
-			PROCESSENTRY32 pe32;
-			bool found{ false };
-
-			WriteToLog(L"Enumerating all processess...");
-			// Take a snapshot of all processes in the system.
-			hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-			if (hProcessSnap == INVALID_HANDLE_VALUE)
-			{
-				WriteToLog(L"Failed to call CreateToolhelp32Snapshot(). Error code %d",GetLastError());
-				is_running = false;
-				return 1;
-			}
-
-			// Set the size of the structure before using it.
-			pe32.dwSize = sizeof(PROCESSENTRY32);
-
-			// Retrieve information about the first process,
-			// and exit if unsuccessful
-			if (!Process32First(hProcessSnap, &pe32))
-			{
-				WriteToLog(L"Failed to call Process32First(). Error code %d",GetLastError());
-				CloseHandle(hProcessSnap);          // clean the snapshot object
-				is_running=false;
-				break;
-			}
-
-			// Now walk the snapshot of processes, and
-			// display information about each process in turn
-			DWORD svchost_parent_pid = 0;
-			DWORD dllhost_parent_pid = 0;
+			is_running = true;
 			std::wstring szPath = L"";
+
+			WriteToLog(L"Checking if '%s' is running...", m_szExeToFind.c_str());
 
 			if (readStringFromRegistry(HKEY_LOCAL_MACHINE, (PWCHAR)SERVICE_REG_KEY, (PWCHAR)SERVICE_KEY_NAME, szPath))
 			{
-				m_szExeToFind = szPath.substr(szPath.find_last_of(L"/\\") + 1);	// The process name is the executable name only
-				m_szExeToRun = szPath;											// The executable to run is the full path
+				m_szExeToFind = szPath.substr(szPath.find_last_of(L"/\\") + 1);    // The process name is the executable name only
+				m_szExeToRun = szPath;                                            // The executable to run is the full path
 			}
 			else
 			{
 				WriteToLog(L"Error reading ExeToFind from the Registry");
+				is_running = false;
+				return 1;
 			}
 
-			do
+			// Initialize a flag to check if the program is already running
+			bool programRunning = false;
+
+			HANDLE hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+			if (hProcessSnap == INVALID_HANDLE_VALUE)
 			{
-				if (wcsstr( m_szExeToFind.c_str(), pe32.szExeFile))
-				{
-					WriteToLog(L"%s is running",m_szExeToFind.c_str());
-					found = true;
-					is_running=false;
-					break;
-				}
-				if (!g_bLoggedIn)
-				{
-					WriteToLog(L"WatchDog isn't starting '%s' because user isn't logged in",m_szExeToFind.c_str());
-					return 1;
-				}
+				WriteToLog(L"Failed to call CreateToolhelp32Snapshot(). Error code %d", GetLastError());
+				is_running = false;
+				return 1;
 			}
-			while (Process32Next(hProcessSnap, &pe32));
-			if (!found)
+
+			PROCESSENTRY32 pe32;
+			pe32.dwSize = sizeof(PROCESSENTRY32);
+
+			if (Process32First(hProcessSnap, &pe32))
 			{
-				WriteToLog(L"'%s' is not running. Need to start it",m_szExeToFind.c_str());
-				if (!m_szExeToRun.empty())	// Watch Dog start the host app
+				do
+				{
+					if (_wcsicmp(m_szExeToFind.c_str(), pe32.szExeFile) == 0)
+					{
+						// The program is running
+						WriteToLog(L"%s is running", m_szExeToFind.c_str());
+						programRunning = true;
+						break; // Exit the loop as we found the program
+					}
+				}
+				while (Process32Next(hProcessSnap, &pe32));
+			}
+
+			CloseHandle(hProcessSnap);
+
+			if (!programRunning)
+			{
+				WriteToLog(L"'%s' is not running. Need to start it", m_szExeToFind.c_str());
+				if (!m_szExeToRun.empty()) // Watch Dog start the host app
 				{
 					if (!g_bLoggedIn)
 					{
-						WriteToLog(L"WatchDog isn't starting '%s' because user isn't logged in",m_szExeToFind.c_str());
+						WriteToLog(L"WatchDog isn't starting '%s' because the user isn't logged in", m_szExeToFind.c_str());
 						return 1;
 					}
 					ImpersonateActiveUserAndRun();
 
-	
 					RunHost((LPWSTR)m_szExeToRun.c_str(), (LPWSTR)L"");
 
 				}
@@ -1308,13 +1309,15 @@ LRESULT CALLBACK S_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 					WriteToLog(L"m_szExeToRun is empty");
 				}
 			}
-			CloseHandle(hProcessSnap);
+
+			is_running = false;
+
+
 		}
-		is_running=false;
-		break;
 		default: 
 			is_running=false;
 			return DefWindowProc(hWnd, message, wParam, lParam);
+
 	}
 
 	return 0;

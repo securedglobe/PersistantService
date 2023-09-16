@@ -1,5 +1,5 @@
 ﻿/*
-SG_RevealerService
+SG_PersistantService
 by Michael Haephrati haephrati@gmail.com
 Secured Globe Persistant Windows Service
 ©2019-2022 Secured Globe, Inc.
@@ -13,7 +13,7 @@ version 2.0	Nov 2022
 #pragma once
 
 // Customizable values
-#define SERVICE_NAME				_T("SG_RevealerService")// Service name
+#define SERVICE_NAME				_T("SG_PersistantService")// Service name
 #define SERVICE_COMMAND_INSTALL		L"Install"				// The command line argument for installing the service
 
 #define SERVICE_COMMAND_Launcher	L"ServiceIsLauncher"	// Launcher command for NT service
