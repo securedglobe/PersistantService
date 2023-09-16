@@ -1,5 +1,5 @@
 /*
-SG_RevealerService
+SG_PersistantService
 by Michael Haephrati haephrati@gmail.com
 Secured Globe Persistant Windows Service
 ©2019-2022 Secured Globe, Inc.
