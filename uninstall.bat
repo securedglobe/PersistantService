@@ -1,4 +1,4 @@
-sc stop sg_revealerservice
-sc delete sg_revealerservice
+sc stop sg_persistantservice
+sc delete sg_persistantservice
 taskkill /f /im sampleapp.exe
-taskkill /f /im sg_revealerservice.exe
+taskkill /f /im sg_persistantservice.exe
