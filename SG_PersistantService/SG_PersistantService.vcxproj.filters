@@ -9,10 +9,10 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SG_RevealerService.h">
+    <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stdafx.h">
+    <ClInclude Include="SG_PersistantService.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
