@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+/.vs
+/bin/x64/Release
+/SG_PersistantService/.vs/SG_RevealerService/v17
+/_intermediate/x64
