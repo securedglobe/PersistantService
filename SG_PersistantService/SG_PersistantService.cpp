@@ -398,13 +398,14 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpsz
 			status = CreateRegistryKey(HKEY_LOCAL_MACHINE, (PWCHAR)SERVICE_REG_KEY); //create key
 			if (status != TRUE)
 				WriteToLog(L"Failed to create registry");
-			RunHost((LPWSTR)m_szExeToRun.c_str(),(LPWSTR)L"");
-			InstallService();
+			//RunHost((LPWSTR)m_szExeToRun.c_str(),(LPWSTR)L"");
 		}
 		else
 		{
 			WriteToLog(L"App to run '%s' doesn't exist",m_szExeToRun.c_str());
 		}
+		InstallService();
+
 	}
 	else if (::wcsstr(command, SERVICE_COMMAND_Launcher) != NULL)
 	{
@@ -742,6 +743,7 @@ void WINAPI ServiceMain(DWORD dwArgCount, LPTSTR lpszArgValues[])
 	GetModuleFileName(NULL, szCurModule, MAX_PATH);
 
 	WriteToLog(L"Launch client\n"); // launch client ...
+	if(GetLoggedInUser()==L"")
 	{
 		UserLoginListener WaitTillAUserLogins;
 		WaitTillAUserLogins.WaitForUserToLogIn();
