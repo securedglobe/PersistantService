@@ -34,3 +34,5 @@
 /bin/x64/Release
 /SG_PersistantService/.vs/SG_RevealerService/v17
 /_intermediate/x64
+/SG_PersistantService.Tests/bin
+/SG_PersistantService.Tests/_intermediate

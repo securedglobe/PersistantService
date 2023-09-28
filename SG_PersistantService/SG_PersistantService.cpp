@@ -355,6 +355,65 @@ BOOL readStringFromRegistry(HKEY hKeyParent, PWCHAR subkey, PWCHAR valueName, st
 		return false;
 	}
 }
+
+bool IsInstallCommand(LPCWSTR command)
+{
+    return ::wcsstr(command, SERVICE_COMMAND_INSTALL) != NULL;
+}
+
+bool IsLauncherCommand(LPCWSTR command)
+{
+    return ::wcsstr(command, SERVICE_COMMAND_Launcher) != NULL;
+}
+
+std::wstring ParseInstallModulePath(LPCWSTR command)
+{
+    const wchar_t* real_path = wcschr(command, L'#');
+    if (real_path)
+    {
+        real_path++;
+        return real_path;
+    }
+    return L"";
+}
+
+std::wstring ExtractFileName(const std::wstring& szPath)
+{
+    return szPath.substr(szPath.find_last_of(L"/\\") + 1);
+}
+
+std::wstring BuildQuotedServicePath(LPCWSTR szPath)
+{
+    TCHAR szServicePath[MAX_PATH] = { _T("\"") };
+    lstrcat(szServicePath, szPath);
+    lstrcat(szServicePath, _T("\""));
+    return szServicePath;
+}
+
+std::wstring BuildLauncherCommandLine(LPCWSTR szCurModule)
+{
+    std::wstring commandLine;
+    commandLine.reserve(1024);
+    commandLine += L"\"";
+    commandLine += szCurModule;
+    commandLine += L"\" \"";
+    commandLine += SERVICE_COMMAND_Launcher;
+    commandLine += L"\"";
+    return commandLine;
+}
+
+std::wstring BuildHostCommandLine(LPCWSTR hostExePath, LPCWSTR commandLineArguments)
+{
+    std::wstring commandLine;
+    commandLine.reserve(1024);
+    commandLine += L"\"";
+    commandLine += hostExePath;
+    commandLine += L"\" \"";
+    commandLine += commandLineArguments;
+    commandLine += L"\"";
+    return commandLine;
+}
+
 /*!
 Service main routine.
 
@@ -363,7 +422,7 @@ SG_WinService.exe ServiceIsLauncher		-	Start the client
 */
 
 
-// 
+#ifndef SG_UNITTEST
 int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpszCmdLine, int nCmdShow)
 {
 	LPWSTR command = (LPTSTR)L"";
@@ -376,7 +435,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpsz
 	enableConsole();
 
 	WriteToLog(L"SG_PersistantService Windows Service: command = '%s'\n\n", command);
-	if (::wcsstr(command, SERVICE_COMMAND_INSTALL) != NULL)
+	if (IsInstallCommand(command))
 	{
 		// Obtaining the full path of the service and adding the special service name quotations
 		TCHAR szPath[MAX_PATH] = { 0 };
@@ -384,13 +443,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpsz
 		GetModuleFileName(NULL, szPath, MAX_PATH);
 
 		WriteToLog(L"Option 1 - Install");
-		// parse argument for get module path
-		wchar_t* real_path = wcschr(command, L'#');
-		if (real_path)
-		{
-			real_path++;
-			m_szExeToRun = real_path;
-		}
+		m_szExeToRun = ParseInstallModulePath(command);
 		if(PathFileExists(m_szExeToRun.c_str()))
 		{
 			WriteToLog(L"[WatchDog] Install module path: %s\n", m_szExeToRun.c_str()); 
@@ -407,7 +460,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpsz
 		InstallService();
 
 	}
-	else if (::wcsstr(command, SERVICE_COMMAND_Launcher) != NULL)
+	else if (IsLauncherCommand(command))
 	{
 		WriteToLog(L"ServiceIsLauncher\n");
 		AppMainFunction();
@@ -430,6 +483,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpsz
 
 	return 0;
 }
+#endif
 
 
 DWORD GetServiceProcessID(SC_HANDLE hService)
@@ -454,11 +508,9 @@ void WINAPI InstallService()
 
 
 	// Obtaining the full path of the service and adding the special service name quotations
-	TCHAR szServicePath[MAX_PATH] = { _T("\"") };
 	TCHAR szPath[MAX_PATH] = { 0 };
 	GetModuleFileName(NULL, szPath, MAX_PATH);
-	lstrcat(szServicePath, szPath);
-	lstrcat(szServicePath, _T("\""));
+	std::wstring szServicePath = BuildQuotedServicePath(szPath);
 
 	SC_HANDLE hSCManager = NULL;
 	SC_HANDLE hService = NULL;
@@ -474,7 +526,7 @@ void WINAPI InstallService()
 	hService = CreateService(hSCManager, SERVICE_NAME, SERVICE_NAME, SERVICE_ALL_ACCESS
 		| SERVICE_USER_DEFINED_CONTROL | READ_CONTROL
 		| WRITE_DAC | WRITE_OWNER, SERVICE_WIN32_OWN_PROCESS, SERVICE_AUTO_START, SERVICE_ERROR_NORMAL,
-		szServicePath, NULL, NULL, NULL, NULL, _T(""));
+		szServicePath.c_str(), NULL, NULL, NULL, NULL, _T(""));
 
 	if (hService == NULL)
 	{
@@ -644,13 +696,7 @@ void ImpersonateActiveUserAndRun()
             WriteToLog(L"CreateEnvironmentBlock - failed. Error %d",GetLastError());
             continue;
         }
-        std::wstring commandLine;
-        commandLine.reserve(1024);
-        commandLine += L"\"";
-        commandLine += szCurModule;
-        commandLine += L"\" \"";
-        commandLine += SERVICE_COMMAND_Launcher;
-        commandLine += L"\"";
+        std::wstring commandLine = BuildLauncherCommandLine(szCurModule);
         WCHAR PP[1024]; //path and parameters
         ZeroMemory(PP, 1024 * sizeof WCHAR);
         wcscpy_s(PP, commandLine.c_str());
@@ -871,15 +917,7 @@ void WINAPI Run(DWORD dwTargetSessionId, int desktop)
 	BOOL bRes = FALSE;
 
 	{
-		std::wstring commandLine;
-		commandLine.reserve(1024);
-
-		commandLine += L"\"";
-		commandLine += szCurModule;
-		commandLine += L"\" \"";
-		commandLine += SERVICE_COMMAND_Launcher;
-		commandLine += L"\"";
-
+		std::wstring commandLine = BuildLauncherCommandLine(szCurModule);
 
 		bRes = CreateProcessAsUserW(hToken, NULL, &commandLine[0], NULL, NULL, FALSE, NORMAL_PRIORITY_CLASS |
 			CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE | CREATE_DEFAULT_ERROR_MODE, pEnv,
@@ -1164,15 +1202,7 @@ BOOL RunHost(LPWSTR HostExePath,LPWSTR CommandLineArguments)
 
 	if (PathFileExists(HostExePath))
 	{
-		std::wstring commandLine;
-		commandLine.reserve(1024);
-
-
-		commandLine += L"\"";
-		commandLine += HostExePath;
-		commandLine += L"\" \"";
-		commandLine += CommandLineArguments;
-		commandLine += L"\"";
+		std::wstring commandLine = BuildHostCommandLine(HostExePath, CommandLineArguments);
 
 		WriteToLog(L"launch host with CreateProcessAsUser ...  %s", commandLine.c_str());
 
@@ -1250,7 +1280,7 @@ LRESULT CALLBACK S_WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 
 			if (readStringFromRegistry(HKEY_LOCAL_MACHINE, (PWCHAR)SERVICE_REG_KEY, (PWCHAR)SERVICE_KEY_NAME, szPath))
 			{
-				m_szExeToFind = szPath.substr(szPath.find_last_of(L"/\\") + 1);    // The process name is the executable name only
+				m_szExeToFind = ExtractFileName(szPath);    // The process name is the executable name only
 				m_szExeToRun = szPath;                                            // The executable to run is the full path
 			}
 			else

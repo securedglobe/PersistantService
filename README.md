@@ -248,3 +248,12 @@ This project is licensed under the **GNU Lesser General Public License v2.1**. S
 ## Related projects
 
 SG PersistantService is a **standalone Windows utility**. It is not wired to other Secured Globe products (e.g. Scrubber, SG_SqliteServer) in this repository, but it can be used to keep any Win32 desktop executable running persistently by substituting your application's path in the install command.
+
+## Unit tests
+
+`SG_PersistantService.Tests` is a Visual Studio C++ unit-test project. It calls the production helpers (service name and command-line parsing, registry string I/O, status reporting, and window-message handling) and does not install or start the Windows service.
+
+```powershell
+msbuild SG_PersistantService.Tests\SG_PersistantService.Tests.vcxproj /p:Configuration=Debug /p:Platform=x64
+vstest.console SG_PersistantService.Tests\bin\x64\Debug\SG_PersistantService.Tests.dll
+```

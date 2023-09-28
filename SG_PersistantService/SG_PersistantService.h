@@ -21,8 +21,29 @@ version 2.0	Nov 2022
 
 #define MAIN_TIMER_ID				2001
 
+extern SERVICE_STATUS serviceStatus;
+extern SERVICE_STATUS_HANDLE hServiceStatus;
+extern HANDLE ghSvcStopEvent;
+extern HANDLE hPrevAppProcess;
+extern bool g_bLoggedIn;
+extern std::wstring m_szExeToFind;
+extern std::wstring m_szExeToRun;
 
 void WriteToLog(LPCTSTR lpText, ...);
+std::wstring GetExePath();
+BOOL CreateRegistryKey(HKEY hKeyParent, PWCHAR subkey);
+BOOL writeStringInRegistry(HKEY hKeyParent, PWCHAR subkey, PWCHAR valueName, PWCHAR strData);
+LONG GetStringRegKey(HKEY hKey, const std::wstring& strValueName, std::wstring& strValue, const std::wstring& strDefaultValue);
+BOOL readStringFromRegistry(HKEY hKeyParent, PWCHAR subkey, PWCHAR valueName, std::wstring& readData);
+DWORD GetServiceProcessID(SC_HANDLE hService);
+
+bool IsInstallCommand(LPCWSTR command);
+bool IsLauncherCommand(LPCWSTR command);
+std::wstring ParseInstallModulePath(LPCWSTR command);
+std::wstring ExtractFileName(const std::wstring& szPath);
+std::wstring BuildQuotedServicePath(LPCWSTR szPath);
+std::wstring BuildLauncherCommandLine(LPCWSTR szCurModule);
+std::wstring BuildHostCommandLine(LPCWSTR hostExePath, LPCWSTR commandLineArguments);
 
 void ReportServiceStatus(DWORD, DWORD, DWORD);
 void WINAPI InstallService();
