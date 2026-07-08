@@ -2,7 +2,7 @@
 
 A native C++ Windows service that keeps an interactive desktop application running across reboots, user logon/logoff, and unexpected process termination.
 
-**Version 2.0** · Secured Globe, Inc. · [CodeProject article](https://www.codeproject.com/Articles/5345258/Thank-You-for-Your-Service-Creating-a-Persistent-I)
+**Version 2.0** · [Secured Globe, Inc.](https://www.securedglobe.net) · [article in Secured Globe, Inc. blog](https://www.securedglobe.net/single-post/thank-you-for-your-service)
 
 ---
 
@@ -240,7 +240,7 @@ This project is licensed under the **GNU Lesser General Public License v2.1**. S
 
 - **Author:** Michael Haephrati — [haephrati@gmail.com](mailto:haephrati@gmail.com)
 - **Organization:** [Secured Globe, Inc.](https://www.securedglobe.net)
-- **Article:** [Thank You for Your Service — Creating a Persistent Interactive Windows Service](https://www.codeproject.com/Articles/5345258/Thank-You-for-Your-Service-Creating-a-Persistent-I)
+- **Article:** [article in Secured Globe, Inc. blog](https://www.securedglobe.net/single-post/thank-you-for-your-service)
 - **Repository:** [github.com/securedglobe/PersistantService](https://github.com/securedglobe/PersistantService)
 
 ---
